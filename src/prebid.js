@@ -3,6 +3,7 @@
 import { getGlobal } from './prebidGlobal';
 import {flatten, uniques, isGptPubadsDefined, adUnitsFilter, isSrcdocSupported} from './utils';
 import { videoAdUnit, hasNonVideoBidder } from './video';
+import { nativeAdUnit, hasNonNativeBidder } from './native';
 import 'polyfill';
 import {parse as parseURL, format as formatURL} from './url';
 import {isValidePriceConfig} from './cpmBucketManager';
@@ -245,11 +246,11 @@ $$PREBID_GLOBAL$$.setTargetingForGPTAsync = function () {
 
   //first reset any old targeting
   targeting.resetPresetTargeting();
-  
+
   //now set new targeting keys
   targeting.setTargeting(targeting.getAllTargeting());
-  
-  //emit event 
+
+  //emit event
   events.emit(SET_TARGETING);
 };
 
@@ -261,8 +262,8 @@ $$PREBID_GLOBAL$$.setTargetingForAst = function() {
   }
 
   targeting.setTargetingForAst();
-  
-  //emit event 
+
+  //emit event
   events.emit(SET_TARGETING);
 };
 
@@ -300,7 +301,7 @@ $$PREBID_GLOBAL$$.renderAd = function (doc, id) {
         var width = adObject.width;
         var url = adObject.adUrl;
         var ad = adObject.ad;
-        
+
         if (doc === document || adObject.mediaType === 'video') {
           utils.logError(`Error trying to write ad. Ad render call ad id ${id} was prevented from writing to the main document.`);
         } else if (ad) {
@@ -382,6 +383,16 @@ $$PREBID_GLOBAL$$.requestBids = function ({ bidsBackHandler, timeout, adUnits, a
   const invalidVideoAdUnits = adUnits.filter(videoAdUnit).filter(hasNonVideoBidder);
   invalidVideoAdUnits.forEach(adUnit => {
     utils.logError(`adUnit ${adUnit.code} has 'mediaType' set to 'video' but contains a bidder that doesn't support video. No Prebid demand requests will be triggered for this adUnit.`);
+    for (let i = 0; i < adUnits.length; i++) {
+      if (adUnits[i].code === adUnit.code) {adUnits.splice(i, 1);}
+    }
+  });
+
+  // for native-enabled adUnits, only request bids if all bidders support native
+  // TODO: abstract this and the video adunit validation into general adunit validation function
+  const invalidNativeAdUnits = adUnits.filter(nativeAdUnit).filter(hasNonNativeBidder);
+  invalidNativeAdUnits.forEach(adUnit => {
+    utils.logError(`adUnit ${adUnit.code} has 'mediaType' set to 'native' but contains a bidder that doesn't support native. No Prebid demand requests will be triggered for this adUnit.`);
     for (let i = 0; i < adUnits.length; i++) {
       if (adUnits[i].code === adUnit.code) {adUnits.splice(i, 1);}
     }
